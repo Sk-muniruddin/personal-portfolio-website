@@ -1,19 +1,37 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- task: Checkout@v2
+  displayName: 'Checkout GitHub Repository'
 
 - script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    sudo apt-get update
+    sudo apt-get install -y apache2
+- task: Ant@1
+  inputs:
+    buildFile: 'build.xml'
+    options: 
+    publishJUnitResults: true
+    testResultsFiles: '**/TEST-*.xml'
+    javaHomeOption: 'JDKVersion'
+    sudo systemctl start apache2
+    sudo systemctl enable apache2
+  displayName: 'Install Apache'
+
+- script: |
+    sudo rm -rf /var/www/html/*
+    sudo cp -r $(Build.SourcesDirectory)/* /var/www/html/
+  displayName: 'Deploy Static Website'
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'YOUR_SERVICE_CONNECTION'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az vm restart --resource-group YOUR_RESOURCE_GROUP --name YOUR_VM_NAME
+  displayName: 'Restart Azure VM'
